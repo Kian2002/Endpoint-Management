@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   const alerts = [
     {
@@ -24,12 +26,34 @@ export default function Home() {
     <div className="min-h-screen font-sans text-gray-800 max-w-7xl mx-auto">
       {/* Header */}
       <header className="flex justify-between items-center px-8 py-4 border-b">
-        <div className="font-bold">Logo</div>
+        <Link
+          href="/"
+          className="font-bold hover:text-gray-600 transition-colors"
+        >
+          Logo
+        </Link>
         <nav className="flex items-center gap-6">
-          <a href="#">Dashboard</a>
-          <a href="#">Endpoints</a>
-          <a href="#">Alerts</a>
-          <a href="#">Login</a>
+          <Link
+            href="#dashboard"
+            className="hover:text-gray-600 transition-colors"
+          >
+            Dashboard
+          </Link>
+          <Link
+            href="#endpoints"
+            className="hover:text-gray-600 transition-colors"
+          >
+            Endpoints
+          </Link>
+          <Link
+            href="#alerts"
+            className="hover:text-gray-600 transition-colors"
+          >
+            Alerts
+          </Link>
+          <Link href="/login" className="hover:text-gray-600 transition-colors">
+            Login
+          </Link>
         </nav>
       </header>
 
@@ -47,12 +71,18 @@ export default function Home() {
             copiosae...
           </p>
           <div className="flex gap-2">
-            <button className="bg-black text-white px-4 py-2 rounded cursor-pointer">
+            <Link
+              href="/signup"
+              className="bg-black text-white px-4 py-2 rounded cursor-pointer hover:bg-gray-800 transition-colors"
+            >
               Signup
-            </button>
-            <button className="border px-4 py-2 rounded cursor-pointer">
+            </Link>
+            <Link
+              href="/login"
+              className="border px-4 py-2 rounded cursor-pointer hover:bg-gray-50 transition-colors"
+            >
               Login
-            </button>
+            </Link>
           </div>
         </div>
         <div className="bg-gray-200 rounded-lg h-40 md:h-60 flex justify-center items-center">
@@ -128,9 +158,12 @@ export default function Home() {
           Lorem ipsum dolor sit amet et delectus accommodare his consul
           copiosae...
         </p>
-        <button className="bg-black text-white px-6 py-3 rounded cursor-pointer">
+        <Link
+          href="/signup"
+          className="bg-black text-white px-6 py-3 rounded cursor-pointer hover:bg-gray-800 transition-colors inline-block"
+        >
           Start Free Trial
-        </button>
+        </Link>
       </section>
 
       {/* {Subscription section} */}
@@ -140,19 +173,25 @@ export default function Home() {
           Choose the plan that fits your needs.
         </p>
         <div className="flex justify-center gap-6">
-          <div className="border p-6 rounded-lg w-64">
+          <div className="border p-6 rounded-lg w-64 bg-white">
             <h3 className="font-semibold mb-2">Monthly Plan</h3>
             <p className="text-lg font-bold mb-4">$9.99/month</p>
-            <button className="bg-black text-white px-4 py-2 rounded cursor-pointer">
+            <Link
+              href="/signup"
+              className="bg-black text-white px-4 py-2 rounded cursor-pointer hover:bg-gray-800 transition-colors inline-block"
+            >
               Subscribe
-            </button>
+            </Link>
           </div>
-          <div className="border p-6 rounded-lg w-64">
+          <div className="border p-6 rounded-lg w-64 bg-white">
             <h3 className="font-semibold mb-2">Yearly Plan</h3>
             <p className="text-lg font-bold mb-4">$99.99/year</p>
-            <button className="bg-black text-white px-4 py-2 rounded cursor-pointer">
+            <Link
+              href="/signup"
+              className="bg-black text-white px-4 py-2 rounded cursor-pointer hover:bg-gray-800 transition-colors inline-block"
+            >
               Subscribe
-            </button>
+            </Link>
           </div>
         </div>
       </section>
