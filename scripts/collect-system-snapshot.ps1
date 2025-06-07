@@ -2,14 +2,13 @@
 $pcName = $env:COMPUTERNAME
 
 # Save system information to a folder named after the PC name to desired location. we are saving it to usb drive
-$folderPath = "D:\Scripts\results\info\$pcName"
+$folderPath = "C:\Scripts\info\$pcName"
 
 # Create the folder if it doesn't exist
 
 if (-not (Test-Path -Path $folderPath)) {
     New-Item -Path $folderPath -ItemType Directory
 }
-
 
 # 4. Save the system information to systemInfo.xml
 systeminfo| Export-Clixml -Path "$folderPath\systemInfo.xml"
@@ -22,7 +21,7 @@ ipconfig /all | Export-Clixml -Path "$folderPath\ipConfig.xml"
 Get-Printer | Select-Object Name, PrinterStatus, PortName | Export-Clixml -Path "$folderPath\printers.xml"
 
 # 2. Save the list of network drives to networkDrive.xml
-Get-PSDrive -PSProvider FileSystem | Export--Pr Clixml -Path "$folderPath\networkDrive.xml"
+Get-PSDrive -PSProvider FileSystem | Export-Clixml -Path "$folderPath\networkDrive.xml"
 
 # 3. Save the list of installed software to softwareList.xml
 Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*, 
@@ -51,7 +50,7 @@ Get-LocalUser | Select-Object Name, Enabled | Export-Clixml -Path "$folderPath\u
 Get-Service | Select-Object Name, Status, DisplayName | Export-Clixml -Path "$folderPath\services.xml"
 
 # 10. Save services list to services.xml
-Get-Process | Select-Object Id,Name,StartTime,Path Export-Clixml -Path "$folderPath\Process.xml"
+Get-Process | Select-Object Id,Name,StartTime,Path | Export-Clixml -Path "$folderPath\Process.xml"
 
 # 11. Save startup programs to startupPrograms.xml
 Get-CimInstance -ClassName Win32_StartupCommand | Select-Object Name, Command | Export-Clixml -Path "$folderPath\startupPrograms.xml"
