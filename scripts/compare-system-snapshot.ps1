@@ -11,10 +11,10 @@ if ($Folders.Count -lt 2) {
 # Write-Host "FOlder object is  $Fold"
 
 
-$folder1 = $Folders[0].FullName
-$folder2 = $Folders[1].FullName
-$PC1 = $Folders[0].Name
-$PC2 = $Folders[1].Name
+$folder1 = $Folders[1].FullName
+$folder2 = $Folders[0].FullName
+$PC1 = $Folders[1].Name
+$PC2 = $Folders[0].Name
 
 Write-Host "Comparing system snapshots: $PC1 vs $PC2" -ForegroundColor Cyan
 
@@ -46,7 +46,69 @@ function Compare-Softwares {
     # temp jsut print the the REsultTable to a file
     $ResultTable | Out-File "C:\Scripts\Output\sofwarwes.txt"
 
+ ## ok so equals are fine but if we have different objects due to different versions of software installed, we need to compare them too to exaaclty show why these two objects are differen
+    foreach ($Difference in $Differences) {
 
+        # for Properties that are equal, we can skip them for now
+        if ($Difference.SideIndicator -eq "==") {
+            continue
+        }
+
+        # compare the baseline with new snapshot
+        elseif ($Difference.SideIndicator -eq "=>") {
+            $matchingObject = $Differences | Where-Object { $_.SideIndicator -eq "<=" -and $_.DisplayName -eq $Difference.DisplayName }
+            
+            # if we have a matching object, we can compare the rest of NoteProperty values except for SideIndicator, and DisplayName
+            if ($matchingObject) {
+
+                # Now we can compare the rest of the properties except for SideIndicator and DisplayName
+                foreach ($property in $propertiesName) {
+                    if ($property -ne "SideIndicator" -and $property -ne "DisplayName") {
+                        $value1 = $Difference.PSObject.Properties[$property].Value
+                        $value2 = $matchingObject.PSObject.Properties[$property].Value
+
+                        if ($value1 -ne $value2) {
+                            Write-Host "$($Difference.DisplayName): Mismatch found for '$property': $value1 (<=) vs $value2 (=>)" -ForegroundColor Yellow
+                        }
+                    }
+                }
+
+            } else {
+                Write-Host "No matching object found for $($Difference.DisplayName) on the <= side." -ForegroundColor Red
+            }
+
+
+        }
+
+        # compare the new snapshot with baseline
+        elseif ($Difference.SideIndicator -eq "<=") {
+
+            $matchingObject = $Differences | Where-Object { $_.SideIndicator -eq "=>" -and $_.DisplayName -eq $Difference.DisplayName }
+            
+            # if we have a matching object, we can compare the rest of NoteProperty values except for SideIndicator, and DisplayName
+            if ($matchingObject) {
+
+                # Now we can compare the rest of the properties except for SideIndicator and DisplayName
+                foreach ($property in $propertiesName) {
+                    if ($property -ne "SideIndicator" -and $property -ne "DisplayName") {
+                        $value1 = $Difference.PSObject.Properties[$property].Value
+                        $value2 = $matchingObject.PSObject.Properties[$property].Value
+                        
+
+                        if ($value1 -ne $value2) {
+                            Write-Host "$($Difference.DisplayName): Mismatch found for '$property': Baseline = $value1 vs Snaphost: $value2" -ForegroundColor Yellow
+                        }
+                    }
+                }
+
+            } else {
+                Write-Host "No matching object found for $($Difference.DisplayName) on the => side." -ForegroundColor Red
+            }
+         
+        }
+
+
+    } # End of foreach loop
    
 
 
