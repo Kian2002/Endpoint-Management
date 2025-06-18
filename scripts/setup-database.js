@@ -32,50 +32,6 @@ async function setupDatabase() {
       )
     `;
 
-    await connection.execute(createUsersTable);
-    console.log('Users table created successfully');
-
-    const createSessionsTable = `
-      CREATE TABLE IF NOT EXISTS sessions (
-        id VARCHAR(255) PRIMARY KEY,
-        session_token VARCHAR(255) UNIQUE NOT NULL,
-        user_id INT NOT NULL,
-        expires TIMESTAMP NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        INDEX idx_session_token (session_token),
-        INDEX idx_user_id (user_id)
-      )
-    `;
-
-    await connection.execute(createSessionsTable);
-    console.log('Sessions table created successfully');
-
-    const createAccountsTable = `
-      CREATE TABLE IF NOT EXISTS accounts (
-        id VARCHAR(255) PRIMARY KEY,
-        user_id INT NOT NULL,
-        type VARCHAR(255) NOT NULL,
-        provider VARCHAR(255) NOT NULL,
-        provider_account_id VARCHAR(255) NOT NULL,
-        refresh_token TEXT,
-        access_token TEXT,
-        expires_at BIGINT,
-        token_type VARCHAR(255),
-        scope VARCHAR(255),
-        id_token TEXT,
-        session_state VARCHAR(255),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        UNIQUE KEY provider_account_id (provider, provider_account_id),
-        INDEX idx_user_id (user_id)
-      )
-    `;
-
-    await connection.execute(createAccountsTable);
-    console.log('Accounts table created successfully');
-
     console.log('Database setup completed successfully!');
 
   } catch (error) {
