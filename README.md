@@ -34,3 +34,35 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+## 📁 Project Structure
+/app # Next.js frontend
+/scripts # PowerShell scripts for endpoint diagnostics
+└── collectSystemInfo.ps1
+
+## ✅ Current Progress
+
+- Developed `collect-system-snapshot.ps1`, a PowerShell script that captures:
+  - PC name
+  - System info
+  - IP config
+  - Installed printers
+  - Mapped network drives
+  - Installed software
+  - Disk space usage
+  - Windows updates
+  - Environment variables
+  - Local users
+  - Running services
+  - Running processes
+  - Startup programs
+- Currently storing data in `.xml` format using `Export-Clixml` for easy debugging and inspection.
+
+## 🛠️ Planned Enhancements
+
+- **Database Integration**: The next phase will involve storing this collected data in a **MySQL database** instead of XML files.
+
+
+
+
