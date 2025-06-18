@@ -89,7 +89,7 @@ export default function Endpoints() {
           <div className="flex flex-wrap gap-4 text-sm text-gray-700">
             <span>Total Endpoints: <b>{assets.length}</b></span>
             {Object.entries(osSummary).map(([os, count]) => (
-              <span key={os}>{os}: <b>{count}</b></span>
+              <span key={os}>{os}: <b>{count as number}</b></span>
             ))}
           </div>
         </div>
