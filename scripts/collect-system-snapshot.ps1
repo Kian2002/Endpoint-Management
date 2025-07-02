@@ -10,11 +10,12 @@ if (-not (Test-Path -Path $folderPath)) {
     New-Item -Path $folderPath -ItemType Directory
 }
 
+
 # 4. Save the system information to systemInfo.xml
-systeminfo| Export-Clixml -Path "$folderPath\systemInfo.xml"
+Get-ComputerInfo | Export-Clixml -Path "$folderPath\systemInfo.xml"
 
 # 12. Save IP configuration (ipconfig /all) to ipConfig.xml
-ipconfig /all | Export-Clixml -Path "$folderPath\ipConfig.xml"
+Get-NetIPConfiguration | Export-Clixml -Path "$folderPath\ipConfig.xml"
 
 
 # 1. Save the list of printers to printers.xml

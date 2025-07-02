@@ -247,7 +247,9 @@ function Compare-Objects-Generic{
     param (
         [string]$File1Path,
         [string]$File2Path,
-        [string]$PC2
+        [string]$PC2,
+        [string]$ComponentType
+
     )
 
     Write-Host "Comparing $($file1.Name)" -ForegroundColor Cyan
@@ -258,6 +260,7 @@ function Compare-Objects-Generic{
 
        # make a folder named $PC1 and store the differences in a file 
     $OutputFolder = "C:\Scripts\output\$PC2"
+    
 
 
     if (-not (Test-Path $OutputFolder)) {
@@ -267,9 +270,12 @@ function Compare-Objects-Generic{
     Write-Host "Storing differences in $OutputFolder" -ForegroundColor Cyan
 
     # temp jsut print the the REsultTable to a file
-    $Differences | Out-File "$OutputFolder\accounts.txt"
+    $Differences | Out-File "$OutputFolder\$ComponentType.txt"
     ## To store the difference in a JSON file
-    $Differences | ConvertTo-Json | Out-File "$OutputFolder\accounts.json"
+    $Differences | ConvertTo-Json | Out-File "$OutputFolder\$ComponentType.json"
+
+    Write-Host "$Differences " -ForegroundColor Cyan
+
 
 
 
@@ -278,7 +284,7 @@ function Compare-Objects-Generic{
     Write-Host "comparison_id: $comparison_id (type: $($comparison_id.GetType().Name))"
 
     ## Now we need to insert a new record in the comparison_component table with the comparison_id, component_type, and json_path
-    Add-ComparisonComponent -ComparisonId $comparison_id -ComponentType "accounts" -JsonFilePath "C:\Scripts\output\INTEL\accounts.json" 
+    Add-ComparisonComponent -ComparisonId $comparison_id -ComponentType "$ComponentType" -JsonFilePath "C:\Scripts\output\INTEL\$ComponentType.json" 
 
 
 }
@@ -366,6 +372,63 @@ function Compare-networkDrive {
     Add-ComparisonComponent -ComparisonId $comparison_id -ComponentType "networkDrives" -JsonFilePath "C:\Scripts\output\INTEL\networkDrives.json" 
 }
 
+function Compare-SystemInfo {
+    param (
+        [string]$File1Path,
+        [string]$File2Path,
+        [string]$PC2,
+        [string]$ComponentType
+
+    )
+
+    Write-Host "Comparing $($file1.Name)" -ForegroundColor Cyan
+
+    $comp1 = Import-Clixml $file1.FullName
+    $comp2 = Import-Clixml $file2.FullName
+
+    # Convert properties to lists
+    $comp1Props = $comp1.PSObject.Properties | Select-Object Name, Value
+    $comp2Props = $comp2.PSObject.Properties | Select-Object Name, Value
+    
+    
+    $Differences = Compare-Object -ReferenceObject $comp1Props -DifferenceObject $comp2Props -Property Name, Value -IncludeEqual -PassThru
+
+
+    $ResultTable = $Differences | Format-Table -AutoSize | Out-String
+    #Write-Host "$ResultTable"
+
+       # make a folder named $PC1 and store the differences in a file 
+    $OutputFolder = "C:\Scripts\output\$PC2"
+    
+
+
+    if (-not (Test-Path $OutputFolder)) {
+        New-Item -ItemType Directory -Path $OutputFolder | Out-Null
+    }
+
+    Write-Host "Storing differences in $OutputFolder" -ForegroundColor Cyan
+
+    # temp jsut print the the REsultTable to a file
+    $Differences | Out-File "$OutputFolder\$ComponentType.txt"
+    ## To store the difference in a JSON file
+    $Differences | ConvertTo-Json -Depth 5 | Out-File "$OutputFolder\$ComponentType.json"
+
+    Write-Host "$Differences " -ForegroundColor Cyan
+
+
+
+  # If $comparison_id is an array, get the last element as this last element is the  comparison_id we need to use for the comparison_component tabl
+    $comparison_id = $comparison_id[-1]
+    Write-Host "comparison_id: $comparison_id (type: $($comparison_id.GetType().Name))"
+
+    ## Now we need to insert a new record in the comparison_component table with the comparison_id, component_type, and json_path
+    Add-ComparisonComponent -ComparisonId $comparison_id -ComponentType "$ComponentType" -JsonFilePath "C:\Scripts\output\INTEL\$ComponentType.json" 
+
+}
+
+
+
+
 
 
 ## Now we have the files, we can compare them one by one using Compare-Object. 
@@ -413,18 +476,24 @@ function Compare-networkDrive {
             # We will treat these as strings as they are of system.string typename
             ############ NEED TO MOVE USERACCOUNTS TO COMPARE_OBJECT FUNCTION ############
             elseif ($file1.Name -eq "systeminfo.xml") {
-             #  Compare-FilesLineByLine -File1Path $file1.FullName -File2Path $file2.FullName
+               #Compare-SystemInfo -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2 -ComponentType "systeminfo"
+
+
+            }
+            elseif ($file1.Name -eq "ipconfig.xml") {
+               #Compare-SystemInfo -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2 
 
 
             }
 
+
             elseif ($file1.Name -eq "userAccounts.xml") {
-               #Compare-Objects-Generic -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2
+               #Compare-Objects-Generic -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2 -ComponentType "accounts"
             }
 
             elseif ($file1.Name -eq "windowsUpdates.xml") {
                 # we need to compare Description, HotFixID, InstalledOn
-                Compare-WindowsUpdates -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2
+                #Compare-WindowsUpdates -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2
             }
 
 
