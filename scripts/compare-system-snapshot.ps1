@@ -27,11 +27,21 @@ Add-PCAsset -AssetTag $PC2
 ## Also Retrrieve the pc_id for the PC2 asset tag and store it in a variable
 $pc_id = Get-PCId -AssetTag $PC2
 
-# Insert a comparison result record for the PC2 asset tag with the snapshot times and compared by user
-# Note: The snapshot times are hardcoded for now, you can change them as needed
-$comparison_id = Add-ComparisonResult -PCId $pc_id -SnapshotBefore (Get-Date "2025-06-10 09:00:00") -SnapshotAfter (Get-Date "2025-06-14 14:30:00") -ComparedBy "junaid"
 
-Write-Host "Comparison ID: $comparison_id" -ForegroundColor Green
+
+## Dynamically get timestamps from the snapshot folders
+$snapshot_before = (Get-Item $folder2).LastWriteTime
+$snapshot_after  = (Get-Item $folder1).LastWriteTime
+
+Write-Host "Baseline snapshot time (before): $snapshot_before" -ForegroundColor Cyan
+Write-Host "New snapshot time (after): $snapshot_after" -ForegroundColor Cyan
+
+## Insert comparison result record
+$comparison_id = Add-ComparisonResult -PCId $pc_id -SnapshotBefore $snapshot_before -SnapshotAfter $snapshot_after -ComparedBy "junaid"
+
+Write-Host "✅ Comparison ID created: $comparison_id" -ForegroundColor Green
+
+
 
 Write-Host "Comparing system snapshots: $PC1 vs $PC2" -ForegroundColor Cyan
 
@@ -45,7 +55,7 @@ $files2 = Get-ChildItem $folder2 -File
 function Compare-Softwares {
     param (
         [string]$File1Path,
-        [string]$File2Path,
+        [string]$File2Path, 
         [string]$PC2
     )
 
@@ -81,12 +91,12 @@ function Compare-Softwares {
 
   # If $comparison_id is an array, get the last element as this last element is the  comparison_id we need to use for the comparison_component tabl
     $comparison_id = $comparison_id[-1]
-    Write-Host "comparison_id: $comparison_id (type: $($comparison_id.GetType().Name))"
+    #Write-Host "comparison_id: $comparison_id (type: $($comparison_id.GetType().Name))"
 
     ## Now we need to insert a new record in the comparison_component table with the comparison_id, component_type, and json_path
-    Add-ComparisonComponent -ComparisonId $comparison_id -ComponentType "software" -JsonFilePath "C:\Scripts\output\INTEL\softwares.json"
+    Add-ComparisonComponent -ComparisonId $comparison_id -ComponentType "software" -JsonFilePath "C:\Scripts\output\INTEL\softwares.json" | Out-Null
     
-    Close-MySqlConnection
+    #Close-MySqlConnection
 
 #  ## ok so equals are fine but if we have different objects due to different versions of software installed, we need to compare them too to exaaclty show why these two objects are differen
 #     foreach ($Difference in $Differences) {
@@ -155,10 +165,489 @@ function Compare-Softwares {
 
 
 
+}
 
+# Function to compare services between two XML files
+function Compare-Services {
+    param (
+        [string]$File1Path,
+        [string]$File2Path,
+        [string]$PC2
+    )
+
+    Write-Host "Comparing services: $File1Path vs $File2Path" -ForegroundColor Cyan
+    $Differences = Compare-Object -ReferenceObject (Import-Clixml $File1Path) -DifferenceObject (Import-Clixml $File2Path) -Property DisplayName, Status -IncludeEqual -PassThru
+    $File1Count = (Get-Content $File1Path).Count
+    $File2Count = (Get-Content $File2Path).Count
+
+    $temp = $Differences | Format-Table -AutoSize | Out-String
+
+     # make a folder named $PC1 and store the differences in a file 
+    $OutputFolder = "C:\Scripts\output\$PC2"
+
+
+    if (-not (Test-Path $OutputFolder)) {
+        New-Item -ItemType Directory -Path $OutputFolder | Out-Null
+    }
+
+    Write-Host "Storing differences in $OutputFolder" -ForegroundColor Cyan
+
+    # temp jsut print the the REsultTable to a file
+    $Differences | Out-File "$OutputFolder\Services.txt"
+    ## To store the difference in a JSON file
+    $Differences | ConvertTo-Json | Out-File "$OutputFolder\Services.json"
+
+
+
+  # If $comparison_id is an array, get the last element as this last element is the  comparison_id we need to use for the comparison_component tabl
+    $comparison_id = $comparison_id[-1]
+    #Write-Host "comparison_id: $comparison_id (type: $($comparison_id.GetType().Name))"
+
+    ## Now we need to insert a new record in the comparison_component table with the comparison_id, component_type, and json_path
+    Add-ComparisonComponent -ComparisonId $comparison_id -ComponentType "services" -JsonFilePath "C:\Scripts\output\INTEL\Services.json" | Out-Null
+
+   
+
+}
+
+function Compare-Processes {
+    param (
+        [string]$File1Path,
+        [string]$File2Path,
+        [string]$PC2
+    )
+
+    Write-Host "Comparing processes: $File1Path vs $File2Path" -ForegroundColor Cyan
+
+    $Differences = Compare-Object `
+        -ReferenceObject (Import-Clixml $File1Path) `
+        -DifferenceObject (Import-Clixml $File2Path) `
+        -Property Name, Path `
+        -IncludeEqual -PassThru
+
+    # Create output folder
+    $OutputFolder = "C:\Scripts\output\$PC2"
+
+    if (-not (Test-Path $OutputFolder)) {
+        New-Item -ItemType Directory -Path $OutputFolder | Out-Null
+    }
+
+    Write-Host "Storing differences in $OutputFolder" -ForegroundColor Cyan
+
+    # Save as TXT
+    $Differences | Out-File "$OutputFolder\Processes.txt"
+
+    # Save as JSON
+    $Differences | ConvertTo-Json -Depth 5 | Out-File "$OutputFolder\Processes.json"
+
+    # Print preview (optional)
+    $ResultTable = $Differences | Format-Table -AutoSize | Out-String
+   # Write-Host $ResultTable -ForegroundColor Cyan
+
+    # Insert into database
+    $comparison_id = $comparison_id[-1]
+    Add-ComparisonComponent -ComparisonId $comparison_id -ComponentType "processes" -JsonFilePath "$OutputFolder\Processes.json" | Out-Null
+}
+
+function Compare-EnvironmentVariables {
+    param (
+        [string]$File1Path,
+        [string]$File2Path,
+        [string]$PC2
+    )
+
+    Write-Host "Comparing environment variables: $File1Path vs $File2Path" -ForegroundColor Cyan
+
+    $Differences = Compare-Object `
+        -ReferenceObject (Import-Clixml $File1Path) `
+        -DifferenceObject (Import-Clixml $File2Path) `
+        -Property Name, Value `
+        -IncludeEqual -PassThru
+
+    # Create output folder
+    $OutputFolder = "C:\Scripts\output\$PC2"
+
+    if (-not (Test-Path $OutputFolder)) {
+        New-Item -ItemType Directory -Path $OutputFolder | Out-Null
+    }
+
+    Write-Host "Storing differences in $OutputFolder" -ForegroundColor Cyan
+
+    # Save as TXT
+    $Differences | Out-File "$OutputFolder\EnvironmentVariables.txt"
+
+    # Save as JSON
+    $Differences | ConvertTo-Json -Depth 5 | Out-File "$OutputFolder\EnvironmentVariables.json"
+
+    # Print preview (optional)
+    $ResultTable = $Differences | Format-Table -AutoSize | Out-String
+    Write-Host $ResultTable -ForegroundColor Cyan
+
+    # Insert into database
+    $comparison_id = $comparison_id[-1]
+    Add-ComparisonComponent -ComparisonId $comparison_id -ComponentType "environmentVariables" -JsonFilePath "$OutputFolder\EnvironmentVariables.json" | Out-Null
+}
+
+
+
+function Compare-printers {
+    param (
+        [string]$File1Path,
+        [string]$File2Path,
+        [string]$PC2
+    )
+
+    Write-Host "Comparing $($file1.Name)" -ForegroundColor Cyan
+    $Differences = Compare-Object -ReferenceObject (Import-Clixml $file1.FullName) -DifferenceObject (Import-Clixml $file2.FullName) -Property Name, PortName, PrinterStatus -IncludeEqual -PassThru
+    $File1Count = (Get-Content $file1.FullName).Count
+    $File2Count = (Get-Content $file2.FullName).Count
+
+    $ResultTable = $Differences | Format-Table -AutoSize | Out-String
+    #Write-Host "$ResultTable"
+
+      # make a folder named $PC1 and store the differences in a file 
+    $OutputFolder = "C:\Scripts\output\$PC2"
+
+
+    if (-not (Test-Path $OutputFolder)) {
+        New-Item -ItemType Directory -Path $OutputFolder | Out-Null
+    }
+
+    Write-Host "Storing differences in $OutputFolder" -ForegroundColor Cyan
+
+    # temp jsut print the the REsultTable to a file
+    $Differences | Out-File "$OutputFolder\printers.txt"
+    ## To store the difference in a JSON file
+    $Differences | ConvertTo-Json | Out-File "$OutputFolder\printers.json"
+
+
+
+  # If $comparison_id is an array, get the last element as this last element is the  comparison_id we need to use for the comparison_component tabl
+    $comparison_id = $comparison_id[-1]
+    #Write-Host "comparison_id: $comparison_id (type: $($comparison_id.GetType().Name))"
+
+    ## Now we need to insert a new record in the comparison_component table with the comparison_id, component_type, and json_path
+    Add-ComparisonComponent -ComparisonId $comparison_id -ComponentType "printers" -JsonFilePath "C:\Scripts\output\INTEL\printers.json" | Out-Null
+
+}
+
+
+## Using it for userAccounts.xml
+function Compare-Objects-Generic{
+    param (
+        [string]$File1Path,
+        [string]$File2Path,
+        [string]$PC2,
+        [string]$ComponentType
+
+    )
+
+    Write-Host "Comparing $($file1.Name)" -ForegroundColor Cyan
+    $Differences = Compare-Object -ReferenceObject (Import-Clixml $file1.FullName) -DifferenceObject (Import-Clixml $file2.FullName) -IncludeEqual -PassThru
+
+    $ResultTable = $Differences | Format-Table -AutoSize | Out-String
+    #Write-Host "$ResultTable"
+
+       # make a folder named $PC1 and store the differences in a file 
+    $OutputFolder = "C:\Scripts\output\$PC2"
+    
+
+
+    if (-not (Test-Path $OutputFolder)) {
+        New-Item -ItemType Directory -Path $OutputFolder | Out-Null
+    }
+
+    Write-Host "Storing differences in $OutputFolder" -ForegroundColor Cyan
+
+    # temp jsut print the the REsultTable to a file
+    $Differences | Out-File "$OutputFolder\$ComponentType.txt"
+    ## To store the difference in a JSON file
+    $Differences | ConvertTo-Json | Out-File "$OutputFolder\$ComponentType.json"
+
+    #Write-Host "$Differences " -ForegroundColor Cyan
+
+
+
+
+  # If $comparison_id is an array, get the last element as this last element is the  comparison_id we need to use for the comparison_component tabl
+    $comparison_id = $comparison_id[-1]
+    Write-Host "comparison_id: $comparison_id (type: $($comparison_id.GetType().Name))"
+
+    ## Now we need to insert a new record in the comparison_component table with the comparison_id, component_type, and json_path
+    Add-ComparisonComponent -ComparisonId $comparison_id -ComponentType "$ComponentType" -JsonFilePath "C:\Scripts\output\INTEL\$ComponentType.json" | Out-Null
 
 
 }
+
+## Using it for Windows update
+function Compare-WindowsUpdates {
+    param (
+        [string]$File1Path,
+        [string]$File2Path,
+        [string]$PC2
+    )
+
+    Write-Host "Comparing $($file1.Name)" -ForegroundColor Cyan
+    $Differences = Compare-Object -ReferenceObject (Import-Clixml $file1.FullName) -DifferenceObject (Import-Clixml $file2.FullName) -IncludeEqual -PassThru
+
+    $ResultTable = $Differences | Format-Table -AutoSize | Out-String
+    #Write-Host "$ResultTable"
+
+       # make a folder named $PC1 and store the differences in a file 
+    $OutputFolder = "C:\Scripts\output\$PC2"
+
+
+    if (-not (Test-Path $OutputFolder)) {
+        New-Item -ItemType Directory -Path $OutputFolder | Out-Null
+    }
+
+    Write-Host "Storing differences in $OutputFolder" -ForegroundColor Cyan
+
+    # temp jsut print the the REsultTable to a file
+    $Differences | Out-File "$OutputFolder\updates.txt"
+    ## To store the difference in a JSON file
+    $Differences | ConvertTo-Json | Out-File "$OutputFolder\updates.json"
+
+
+
+  # If $comparison_id is an array, get the last element as this last element is the  comparison_id we need to use for the comparison_component tabl
+    $comparison_id = $comparison_id[-1]
+    #Write-Host "comparison_id: $comparison_id (type: $($comparison_id.GetType().Name))"
+
+    ## Now we need to insert a new record in the comparison_component table with the comparison_id, component_type, and json_path
+    Add-ComparisonComponent -ComparisonId $comparison_id -ComponentType "updates" -JsonFilePath "C:\Scripts\output\INTEL\updates.json" | Out-Null
+
+
+}
+
+# Function to compare network drives
+
+function Compare-networkDrive {
+    param (
+        [string]$File1Path,
+        [string]$File2Path,
+        [string]$PC2
+    )
+
+    Write-Host "Comparing $($file1.Name)" -ForegroundColor Cyan
+    $Differences = Compare-Object -ReferenceObject (Import-Clixml $file1.FullName) -DifferenceObject (Import-Clixml $file2.FullName) -Property Name, DisplayRoot -IncludeEqual -PassThru
+    $File1Count = (Get-Content $file1.FullName).Count
+    $File2Count = (Get-Content $file2.FullName).Count
+
+    $ResultTable = $Differences | Format-Table -AutoSize | Out-String
+    #Write-Host "$ResultTable"
+
+       # make a folder named $PC1 and store the differences in a file 
+    $OutputFolder = "C:\Scripts\output\$PC2"
+
+
+    if (-not (Test-Path $OutputFolder)) {
+        New-Item -ItemType Directory -Path $OutputFolder | Out-Null
+    }
+
+    Write-Host "Storing differences in $OutputFolder" -ForegroundColor Cyan
+
+    # temp jsut print the the REsultTable to a file
+    $Differences | Out-File "$OutputFolder\networkDrives.txt"
+    ## To store the difference in a JSON file
+    $Differences | ConvertTo-Json | Out-File "$OutputFolder\networkDrives.json"
+
+
+
+  # If $comparison_id is an array, get the last element as this last element is the  comparison_id we need to use for the comparison_component tabl
+    $comparison_id = $comparison_id[-1]
+    #Write-Host "comparison_id: $comparison_id (type: $($comparison_id.GetType().Name))"
+
+    ## Now we need to insert a new record in the comparison_component table with the comparison_id, component_type, and json_path
+    Add-ComparisonComponent -ComparisonId $comparison_id -ComponentType "networkDrives" -JsonFilePath "C:\Scripts\output\INTEL\networkDrives.json" | Out-Null
+}
+
+function Compare-SystemInfo {
+    param (
+        [string]$File1Path,
+        [string]$File2Path,
+        [string]$PC2,
+        [string]$ComponentType
+
+    )
+
+    Write-Host "Comparing $($file1.Name)" -ForegroundColor Cyan
+
+    $comp1 = Import-Clixml $file1.FullName
+    $comp2 = Import-Clixml $file2.FullName
+
+    # Convert properties to lists
+    $comp1Props = $comp1.PSObject.Properties | Select-Object Name, Value
+    $comp2Props = $comp2.PSObject.Properties | Select-Object Name, Value
+    
+    
+    $Differences = Compare-Object -ReferenceObject $comp1Props -DifferenceObject $comp2Props -Property Name, Value -IncludeEqual -PassThru
+
+
+    $ResultTable = $Differences | Format-Table -AutoSize | Out-String
+    #Write-Host "$ResultTable"
+
+       # make a folder named $PC1 and store the differences in a file 
+    $OutputFolder = "C:\Scripts\output\$PC2"
+    
+
+
+    if (-not (Test-Path $OutputFolder)) {
+        New-Item -ItemType Directory -Path $OutputFolder | Out-Null
+    }
+
+    Write-Host "Storing differences in $OutputFolder" -ForegroundColor Cyan
+
+    # temp jsut print the the REsultTable to a file
+    $Differences | Out-File "$OutputFolder\$ComponentType.txt"
+    ## To store the difference in a JSON file
+    $Differences | ConvertTo-Json -Depth 5 | Out-File "$OutputFolder\$ComponentType.json"
+
+    #Write-Host "$Differences " -ForegroundColor Cyan
+
+
+
+  # If $comparison_id is an array, get the last element as this last element is the  comparison_id we need to use for the comparison_component tabl
+    $comparison_id = $comparison_id[-1]
+    #Write-Host "comparison_id: $comparison_id (type: $($comparison_id.GetType().Name))"
+
+    ## Now we need to insert a new record in the comparison_component table with the comparison_id, component_type, and json_path
+    Add-ComparisonComponent -ComparisonId $comparison_id -ComponentType "$ComponentType" -JsonFilePath "C:\Scripts\output\INTEL\$ComponentType.json" | Out-Null
+
+}
+
+# Compare the network configuration files
+function Compare-NetworkConfig {
+    param (
+        [string]$File1Path,
+        [string]$File2Path,
+        [string]$PC2,
+        [string]$ComponentType
+    )
+
+    Write-Host "Comparing network configuration ($ComponentType)..." -ForegroundColor Cyan
+
+    # Import Clixml snapshots
+    $net1 = Import-Clixml $File1Path
+    $net2 = Import-Clixml $File2Path
+
+    # No need to convert to properties — already flattened custom objects
+    $Differences = Compare-Object -ReferenceObject $net1 -DifferenceObject $net2 `
+        -Property InterfaceAlias, IPv4Address, IPv6Address, IPv4Gateway, IPv6Gateway, DNSServers `
+        -IncludeEqual -PassThru
+
+    # Create formatted table string
+    $ResultTable = $Differences | Format-Table -AutoSize | Out-String
+
+    # Output folder
+    $OutputFolder = "C:\Scripts\output\$PC2"
+
+    if (-not (Test-Path $OutputFolder)) {
+        New-Item -ItemType Directory -Path $OutputFolder | Out-Null
+    }
+
+    Write-Host "Storing differences in $OutputFolder" -ForegroundColor Cyan
+
+    # Save as TXT
+    $Differences | Out-File "$OutputFolder\$ComponentType.txt"
+
+    # Save as JSON
+    $Differences | ConvertTo-Json -Depth 5 | Out-File "$OutputFolder\$ComponentType.json"
+
+    # Print preview
+   # Write-Host $ResultTable -ForegroundColor Cyan
+
+    # Example DB insertion (if needed)
+    $comparison_id = $comparison_id[-1]
+    #Write-Host "comparison_id: $comparison_id (type: $($comparison_id.GetType().Name))"
+
+    Add-ComparisonComponent -ComparisonId $comparison_id -ComponentType "$ComponentType" -JsonFilePath "$OutputFolder\$ComponentType.json" | Out-Null
+}
+
+function Compare-StartupPrograms {
+    param (
+        [string]$File1Path,
+        [string]$File2Path,
+        [string]$PC2
+    )
+
+    Write-Host "Comparing startup programs: $File1Path vs $File2Path" -ForegroundColor Cyan
+
+    # Import both XML files
+    $Differences = Compare-Object -ReferenceObject (Import-Clixml $File1Path) `
+                                  -DifferenceObject (Import-Clixml $File2Path) `
+                                  -Property Name, Command -IncludeEqual -PassThru
+
+    # Create formatted table output
+    $ResultTable = $Differences | Format-Table -AutoSize | Out-String
+
+    # Create output folder if not exists
+    $OutputFolder = "C:\Scripts\output\$PC2"
+    if (-not (Test-Path $OutputFolder)) {
+        New-Item -ItemType Directory -Path $OutputFolder | Out-Null
+    }
+
+    Write-Host "Storing differences in $OutputFolder" -ForegroundColor Cyan
+
+    # Save to TXT
+    $Differences | Out-File "$OutputFolder\startupPrograms.txt"
+    # Save to JSON
+    $Differences | ConvertTo-Json | Out-File "$OutputFolder\startupPrograms.json"
+
+    # Get latest comparison_id if needed for DB insert
+    $comparison_id = $comparison_id[-1]
+    # Write-Host "comparison_id: $comparison_id (type: $($comparison_id.GetType().Name))"
+
+    # Insert record in comparison_component table
+    Add-ComparisonComponent -ComparisonId $comparison_id -ComponentType "startupPrograms" -JsonFilePath "$OutputFolder\startupPrograms.json" | Out-Null
+
+    Write-Host "✅ Startup programs comparison completed and stored." -ForegroundColor Green
+}
+
+function Compare-Drivers {
+    param (
+        [string]$File1Path,
+        [string]$File2Path,
+        [string]$PC2
+    )
+
+    Write-Host "Comparing drivers: $File1Path vs $File2Path" -ForegroundColor Cyan
+
+    $Differences = Compare-Object `
+        -ReferenceObject (Import-Clixml $File1Path) `
+        -DifferenceObject (Import-Clixml $File2Path) `
+        -Property Name, Manufacturer, DriverVersion, DriverDate `
+        -IncludeEqual -PassThru
+
+    $OutputFolder = "C:\Scripts\output\$PC2"
+
+    if (-not (Test-Path $OutputFolder)) {
+        New-Item -ItemType Directory -Path $OutputFolder | Out-Null
+    }
+
+    Write-Host "Storing differences in $OutputFolder" -ForegroundColor Cyan
+
+    # Save formatted table (optional)
+    $Differences | Format-Table -AutoSize | Out-File "$OutputFolder\drivers.txt"
+
+    # Save JSON file for DB or web frontend
+    $Differences | ConvertTo-Json -Depth 5 | Out-File "$OutputFolder\drivers.json"
+
+    # If $comparison_id is an array, get the last element
+    $comparison_id = $comparison_id[-1]
+    Write-Host "comparison_id: $comparison_id (type: $($comparison_id.GetType().Name))"
+
+    # Insert into DB
+    Add-ComparisonComponent -ComparisonId $comparison_id -ComponentType "drivers" -JsonFilePath "$OutputFolder\drivers.json" | Out-Null
+
+}
+
+
+
+
+
+
+
 
 
 
@@ -183,23 +672,34 @@ function Compare-Softwares {
             #########SERVICES##########
             elseif ($file1.Name -eq "services.xml") {
 
-              #  Compare-Services -File1Path $file1.FullName -File2Path $file2.FullName
+                Compare-Services -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2
             
             } # End of services functiion
+
+            elseif ($file1.Name -eq "process.xml") {
+
+                Compare-Processes -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2
+            
+            }
+            elseif ($file1.Name -eq "environmentVariables.xml") {
+
+                Compare-EnvironmentVariables -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2
+            
+            }
 
 
             elseif ($file1.Name -eq "printers.xml") {
                 
                 # we just need to compare the Name and PortName
 
-                #Compare-printers -File1Path $file1.FullName -File2Path $file2.FullName
+                Compare-printers -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2
 
 
             }
 
             elseif ($file1.Name -eq "networkDrive.xml") {
                 # we need to compare Name, DisplayRoot, 
-               # Compare-networkDrive -File1Path $file1.FullName -File2Path $file2.FullName
+                #Compare-networkDrive -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2
 
 
             }
@@ -207,18 +707,37 @@ function Compare-Softwares {
             # We will treat these as strings as they are of system.string typename
             ############ NEED TO MOVE USERACCOUNTS TO COMPARE_OBJECT FUNCTION ############
             elseif ($file1.Name -eq "systeminfo.xml") {
-             #  Compare-FilesLineByLine -File1Path $file1.FullName -File2Path $file2.FullName
+               Compare-SystemInfo -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2 -ComponentType "systeminfo"
+
+
+            }
+            elseif ($file1.Name -eq "ipconfig.xml") {
+               Compare-NetworkConfig -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2 -ComponentType "ipConfig"
 
 
             }
 
+
             elseif ($file1.Name -eq "userAccounts.xml") {
-               #Compare-Objects-Generic -File1Path $file1.FullName -File2Path $file2.FullName
+               Compare-Objects-Generic -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2 -ComponentType "accounts"
             }
 
             elseif ($file1.Name -eq "windowsUpdates.xml") {
                 # we need to compare Description, HotFixID, InstalledOn
-               # Compare-Objects-Generic -File1Path $file1.FullName -File2Path $file2.FullName
+                Compare-WindowsUpdates -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2
+            }
+
+            elseif ($file1.Name -eq "networkDrive.xml") {
+                # we need to compare Description, HotFixID, InstalledOn
+            Compare-networkDrive -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2
+            }
+
+            elseif ($file1.Name -eq "startupPrograms.xml") {
+                Compare-StartupPrograms -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2
+            }
+
+            elseif ($file1.Name -eq "drivers.xml") {
+                Compare-Drivers -File1Path $file1.FullName -File2Path $file2.FullName -PC2 $PC2
             }
 
 
@@ -233,7 +752,9 @@ function Compare-Softwares {
         else {
             Write-Host "File not found in $PC2 $($file1.Name)" -ForegroundColor Yellow
         }
+
+
     }
 
-    
+Close-MySqlConnection
 # Write-Host "Differences found: $($Differences.Count)" -ForegroundColor Cyan
