@@ -15,7 +15,24 @@ if (-not (Test-Path -Path $folderPath)) {
 Get-ComputerInfo | Export-Clixml -Path "$folderPath\systemInfo.xml"
 
 # 12. Save IP configuration (ipconfig /all) to ipConfig.xml
-Get-NetIPConfiguration | Export-Clixml -Path "$folderPath\ipConfig.xml"
+# Get and flatten network config
+# 12. Save IP configuration (flattened) to ipConfig.xml
+$flatNetConfig = Get-NetIPConfiguration | ForEach-Object {
+    [PSCustomObject]@{
+        InterfaceAlias = $_.InterfaceAlias
+        InterfaceIndex = $_.InterfaceIndex
+        InterfaceDesc  = $_.InterfaceDescription
+        IPv4Address    = ($_.IPv4Address.IPAddress -join ",")
+        IPv6Address    = ($_.IPv6Address.IPAddress -join ",")
+        IPv4Gateway    = ($_.IPv4DefaultGateway.NextHop)
+        IPv6Gateway    = ($_.IPv6DefaultGateway.NextHop)
+        DNSServers     = ($_.DNSServer.ServerAddresses -join ",")
+    }
+}
+
+$flatNetConfig | Export-Clixml -Path "$folderPath\ipConfig.xml"
+Write-Host "✔️ Network configuration snapshot saved to $folderPath\ipConfig.xml" -ForegroundColor Green
+
 
 
 # 1. Save the list of printers to printers.xml
@@ -39,7 +56,17 @@ Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Used -gt 0} | Select-Objec
 Get-HotFix | Select-Object Description, HotFixID, InstalledOn | Export-Clixml -Path "$folderPath\windowsUpdates.xml"
 
 # 7. Save environment variables to environmentVariables.xml
-Get-ChildItem -Path Env: | Export-Clixml -Path "$folderPath\environmentVariables.xml"
+# Get environment variables, convert to custom object with Name and Value
+$envVars = Get-ChildItem Env: | ForEach-Object {
+    [PSCustomObject]@{
+        Name  = $_.Key
+        Value = $_.Value
+    }
+}
+
+# Save to Clixml
+$envVars | Export-Clixml -Path "$folderPath\environmentVariables.xml"
+
 
 # 8. Save active network connections to networkConnections.xml
 #netstat -an | Export-Clixml -Path "$folderPath\networkConnections.xml"
@@ -55,4 +82,36 @@ Get-Process | Select-Object Id,Name,StartTime,Path | Export-Clixml -Path "$folde
 
 # 11. Save startup programs to startupPrograms.xml
 Get-CimInstance -ClassName Win32_StartupCommand | Select-Object Name, Command | Export-Clixml -Path "$folderPath\startupPrograms.xml"
+
+## Collect PnP devices and drivers 
+Write-Host "Collecting installed PnP drivers..." -ForegroundColor Cyan
+
+# Get all PnP entities
+$pnpEntities = Get-CimInstance Win32_PnPEntity
+
+# Get all signed drivers
+$signedDrivers = Get-CimInstance Win32_PnPSignedDriver
+
+# Join them together
+$combined = foreach ($pnp in $pnpEntities) {
+    $matchingDriver = $signedDrivers | Where-Object { $_.DeviceID -eq $pnp.PNPDeviceID }
+    if ($matchingDriver) {
+        [PSCustomObject]@{
+            Name          = $pnp.Name
+            Manufacturer  = $pnp.Manufacturer
+            DeviceID      = $pnp.PNPDeviceID
+            DriverVersion = $matchingDriver.DriverVersion
+            DriverDate    = $matchingDriver.DriverDate
+        }
+    }
+}
+
+# Save to clixml file in current folder
+$CurrentDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$OutputPath = Join-Path -Path $CurrentDir -ChildPath "drivers.xml"
+
+$combined | Export-Clixml -Path $OutputPath
+
+Write-Host "✔️ Driver snapshot saved to $OutputPath" -ForegroundColor Green
+
 
