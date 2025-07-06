@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import EnhancedAlerts from '../components/EnhancedAlerts';
 
 export default function Alerts() {
   const [comparisonComponent, setComparisonComponent] = useState<any[]>([]);
@@ -78,55 +79,17 @@ export default function Alerts() {
       </header>
 
       {/* Main Content */}
-      <div className="px-4 py-6 sm:px-0 space-y-12">
-        <section>
-          <h1 className="text-2xl font-semibold text-gray-900 mb-4">Comparison Components</h1>
-          <div className="bg-white shadow overflow-x-auto sm:rounded-md">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  {comparisonComponent[0] && Object.keys(comparisonComponent[0]).map((key) => (
-                    <th key={key} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{key}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {comparisonComponent.map((row, idx) => (
-                  <tr key={idx}>
-                    {Object.values(row).map((val, i) => (
-                      <td key={i} className="px-4 py-2 text-sm">{String(val)}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {comparisonComponent.length === 0 && <div className="p-4 text-gray-500">No comparison components found.</div>}
+      <div className="px-4 py-6 sm:px-0">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">System Alerts & Monitoring</h1>
+            <p className="text-gray-600">Monitor system changes, alerts, and comparison results</p>
           </div>
-        </section>
-        <section>
-          <h1 className="text-2xl font-semibold text-gray-900 mb-4">Comparison Results</h1>
-          <div className="bg-white shadow overflow-x-auto sm:rounded-md">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  {comparisonResult[0] && Object.keys(comparisonResult[0]).map((key) => (
-                    <th key={key} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{key}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {comparisonResult.map((row, idx) => (
-                  <tr key={idx}>
-                    {Object.values(row).map((val, i) => (
-                      <td key={i} className="px-4 py-2 text-sm">{String(val)}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {comparisonResult.length === 0 && <div className="p-4 text-gray-500">No comparison results found.</div>}
-          </div>
-        </section>
+          <EnhancedAlerts 
+            comparisonComponents={comparisonComponent}
+            comparisonResults={comparisonResult}
+          />
+        </div>
       </div>
     </div>
   );
