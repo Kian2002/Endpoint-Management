@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import EnhancedEndpoints from '../components/EnhancedEndpoints';
+import Navbar from '../components/Navbar';
 
 export default function Endpoints() {
   const [data, setData] = useState<any>(null);
@@ -29,7 +29,7 @@ export default function Endpoints() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading endpoints...</p>
         </div>
       </div>
@@ -41,40 +41,8 @@ export default function Endpoints() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex">
-              <div className="flex-shrink-0 flex items-center">
-                <Link href="/" className="font-bold text-xl">
-                  Endpoint Manager
-                </Link>
-              </div>
-              <nav className="ml-6 flex space-x-8">
-                <Link
-                  href="/dashboard"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  href="/endpoints"
-                  className="border-black text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                >
-                  Endpoints
-                </Link>
-                <Link
-                  href="/alerts"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                >
-                  Alerts
-                </Link>
-              </nav>
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Enhanced Header */}
+      <Navbar currentPage="endpoints" />
 
       {/* Main Content */}
       <div className="px-4 py-6 sm:px-0">
