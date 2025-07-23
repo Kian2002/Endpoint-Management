@@ -91,6 +91,9 @@ export default function EnhancedAlerts({ comparisonComponents, comparisonResults
     return acc;
   }, {});
 
+  // Sort groupedAlerts by comparisonId descending (most recent first)
+  const sortedGroupedAlerts = Object.entries(groupedAlerts).sort((a, b) => Number(b[0]) - Number(a[0]));
+
   const toggleExpand = (key: string) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
   const handleLoadMore = () => setRecentLimit((prev) => prev + 5);
   const handleLoadMoreAlerts = () => setAlertGroupLimit((prev) => prev + 5);
@@ -527,74 +530,77 @@ export default function EnhancedAlerts({ comparisonComponents, comparisonResults
 
       {/* Alerts List */}
       <div className="space-y-8">
-        {Object.keys(groupedAlerts).length === 0 ? (
+        {sortedGroupedAlerts.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-8 text-center">
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No alerts found</h3>
             <p className="text-gray-500">No alerts match your current filters.</p>
           </div>
         ) : (
-          (Object.entries(groupedAlerts) as [string, any[]][])
+          sortedGroupedAlerts
             .slice(0, alertGroupLimit)
-            .map(([comparisonId, comps]) => (
-              <div key={comparisonId} className="bg-white rounded-lg shadow border border-blue-100">
-                <div className="px-4 py-2 border-b border-blue-200 bg-blue-50 rounded-t-lg">
-                  <span className="font-semibold text-blue-800">Comparison ID: {comparisonId}</span>
-                </div>
-                <div className="p-4 space-y-4">
-                  {comps.map((comp: any) => {
-                    let details: any[] = [];
-                    try {
-                      const parsed = comp.diff_json ? JSON.parse(comp.diff_json) : [];
-                      details = Array.isArray(parsed) ? parsed : [];
-                    } catch {
-                      details = [];
-                    }
-                    const severity = classifySeverity(comp.component_type, details);
-                    const severityLabel = severity.toUpperCase();
-                    const severityColor = severity === 'critical' ? 'bg-red-100 text-red-800' : severity === 'warning' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800';
-                    const key = `${comparisonId}-${comp.id}`;
-                    return (
-                      <div key={key} className="bg-white rounded-lg shadow border-l-4 border-blue-200">
-                        <div className="flex items-start justify-between p-4">
-                          <div>
-                            <div className="flex items-center space-x-2 mb-1">
-                              <h4 className="text-sm font-medium text-gray-900">System {comp.component_type} detected</h4>
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${severityColor}`}>{severityLabel}</span>
-                            </div>
-                            <p className="text-sm text-gray-600 mb-2">Component change detected in comparison {comp.comparison_id}</p>
-                            <div className="flex items-center space-x-4 text-xs text-gray-500">
-                              <div className="flex items-center space-x-1">
-                                <Clock className="h-3 w-3" />
-                                <span>{comp.created_at ? new Date(comp.created_at).toLocaleString() : '-'}</span>
+            .map(([comparisonId, comps]) => {
+              const compsArr = comps as any[];
+              return (
+                <div key={comparisonId} className="bg-white rounded-lg shadow border border-blue-100">
+                  <div className="px-4 py-2 border-b border-blue-200 bg-blue-50 rounded-t-lg">
+                    <span className="font-semibold text-blue-800">Comparison ID: {comparisonId}</span>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    {compsArr.map((comp: any) => {
+                      let details: any[] = [];
+                      try {
+                        const parsed = comp.diff_json ? JSON.parse(comp.diff_json) : [];
+                        details = Array.isArray(parsed) ? parsed : [];
+                      } catch {
+                        details = [];
+                      }
+                      const severity = classifySeverity(comp.component_type, details);
+                      const severityLabel = severity.toUpperCase();
+                      const severityColor = severity === 'critical' ? 'bg-red-100 text-red-800' : severity === 'warning' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800';
+                      const key = `${comparisonId}-${comp.id}`;
+                      return (
+                        <div key={key} className="bg-white rounded-lg shadow border-l-4 border-blue-200">
+                          <div className="flex items-start justify-between p-4">
+                            <div>
+                              <div className="flex items-center space-x-2 mb-1">
+                                <h4 className="text-sm font-medium text-gray-900">System {comp.component_type} detected</h4>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${severityColor}`}>{severityLabel}</span>
                               </div>
-                              <div className="flex items-center space-x-1">
-                                <Activity className="h-3 w-3" />
-                                <span>ID: {comp.id}</span>
+                              <p className="text-sm text-gray-600 mb-2">Component change detected in comparison {comp.comparison_id}</p>
+                              <div className="flex items-center space-x-4 text-xs text-gray-500">
+                                <div className="flex items-center space-x-1">
+                                  <Clock className="h-3 w-3" />
+                                  <span>{comp.created_at ? new Date(comp.created_at).toLocaleString() : '-'}</span>
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <Activity className="h-3 w-3" />
+                                  <span>ID: {comp.id}</span>
+                                </div>
                               </div>
                             </div>
+                            <button
+                              onClick={() => toggleExpand(key)}
+                              className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
+                              title={expanded[key] ? 'Hide details' : 'Show details'}
+                            >
+                              {expanded[key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
                           </div>
-                          <button
-                            onClick={() => toggleExpand(key)}
-                            className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
-                            title={expanded[key] ? 'Hide details' : 'Show details'}
-                          >
-                            {expanded[key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </button>
+                          {expanded[key] && Array.isArray(details) && details.length > 0 && (
+                            <div className="mt-2 pb-4 px-4">
+                              <div className="overflow-x-auto">
+                                {renderDetailsTable(comp.component_type, details, normalizeSideIndicator)}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        {expanded[key] && Array.isArray(details) && details.length > 0 && (
-                          <div className="mt-2 pb-4 px-4">
-                            <div className="overflow-x-auto">
-                              {renderDetailsTable(comp.component_type, details, normalizeSideIndicator)}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
         )}
         {Object.keys(groupedAlerts).length > alertGroupLimit && (
           <div className="flex justify-center mt-4">
