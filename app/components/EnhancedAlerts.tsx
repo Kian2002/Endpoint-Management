@@ -253,10 +253,22 @@ export default function EnhancedAlerts({ comparisonComponents, comparisonResults
             <tbody className="bg-white divide-y divide-gray-100">
               {details.map((item: any, idx: number) => {
                 const indicator = normalizeSideIndicator(item.SideIndicator);
+                let statusDisplay = '-';
+                if (item.Status && typeof item.Status === 'object') {
+                  const num = item.Status.value;
+                  const str = item.Status.Value;
+                  if (num !== undefined && str) {
+                    statusDisplay = `${num} (${str})`;
+                  } else if (str) {
+                    statusDisplay = str;
+                  } else if (num !== undefined) {
+                    statusDisplay = String(num);
+                  }
+                }
                 return (
                   <tr key={idx}>
                     <td className="px-2 py-1 whitespace-nowrap">{item.Name || '-'}</td>
-                    <td className="px-2 py-1 whitespace-nowrap">{item.Status?.Value || item.Status?.value || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{statusDisplay}</td>
                     <td className="px-2 py-1 whitespace-nowrap">{item.DisplayName || '-'}</td>
                     <td className="px-2 py-1 whitespace-nowrap">{renderSideIndicator(indicator)}</td>
                   </tr>
