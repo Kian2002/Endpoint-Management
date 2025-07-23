@@ -104,12 +104,44 @@ export default function DataVisualization({ data }: DataVisualizationProps) {
     }
   ];
 
-  // Alert summary
-  const alertSummary = {
-    critical: comparisonComponents.filter((comp: any) => comp.component_type === 'critical').length,
-    warning: comparisonComponents.filter((comp: any) => comp.component_type === 'warning').length,
-    info: comparisonComponents.filter((comp: any) => comp.component_type === 'info').length
+  // Normalize SideIndicator for logic
+  const normalizeSideIndicator = (val: string | undefined) => {
+    if (!val) return val;
+    if (val === '= ' || val === '=>') return '=>';
+    if (val === '<=') return '<=';
+    return val;
   };
+
+  // Severity classification logic (same as EnhancedAlerts)
+  const classifySeverity = (componentType: string, detailsRaw: any): 'critical' | 'warning' | 'info' => {
+    const details: any[] = Array.isArray(detailsRaw) ? detailsRaw : [];
+    const nonEqualCount = details.filter((item: any) => {
+      const indicator = normalizeSideIndicator(item.SideIndicator);
+      return indicator && indicator !== '==';
+    }).length;
+    if (nonEqualCount > 5) return 'critical';
+    if (nonEqualCount > 0) return 'warning';
+    return 'info';
+  };
+
+  // Alert summary using new logic
+  const alertSummary = (() => {
+    let critical = 0, warning = 0, info = 0;
+    comparisonComponents.forEach((comp: any) => {
+      let details: any[] = [];
+      try {
+        const parsed = comp.diff_json ? JSON.parse(comp.diff_json) : [];
+        details = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        details = [];
+      }
+      const severity = classifySeverity(comp.component_type, details);
+      if (severity === 'critical') critical++;
+      else if (severity === 'warning') warning++;
+      else info++;
+    });
+    return { critical, warning, info };
+  })();
 
   return (
     <div className="space-y-6">
