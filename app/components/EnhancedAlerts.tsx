@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { 
   AlertTriangle, CheckCircle, Info, XCircle, Filter, 
-  Clock, Activity, Shield, Eye, EyeOff
+  Clock, Activity, Eye, EyeOff
 } from 'lucide-react';
 
 interface EnhancedAlertsProps {
@@ -13,34 +13,16 @@ interface EnhancedAlertsProps {
 
 export default function EnhancedAlerts({ comparisonComponents, comparisonResults }: EnhancedAlertsProps) {
   const [filter, setFilter] = useState('all');
-  const [showDetails, setShowDetails] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Process alerts data
-  const alerts = comparisonComponents.map((comp: any) => ({
-    id: comp.id,
-    type: comp.component_type || 'info',
-    timestamp: comp.created_at || new Date().toISOString(),
-    details: comp.diff_json ? JSON.parse(comp.diff_json) : {},
-    severity: comp.component_type === 'critical' ? 'high' : 
-              comp.component_type === 'warning' ? 'medium' : 'low',
-    title: `System ${comp.component_type || 'change'} detected`,
-    description: `Component change detected in comparison ${comp.comparison_id}`
-  }));
-
-  // Filter alerts based on current filter
-  const filteredAlerts = alerts.filter(alert => {
-    const matchesFilter = filter === 'all' || alert.type === filter;
-    const matchesSearch = alert.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         alert.description.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
+  const [expanded, setExpanded] = useState<{ [key: string]: boolean }>({});
+  const [recentLimit, setRecentLimit] = useState(5);
+  const [alertGroupLimit, setAlertGroupLimit] = useState(5);
 
   // Normalize SideIndicator for logic and display
   const normalizeSideIndicator = (val: string | undefined) => {
     if (!val) return val;
-    if (val === '=\u003e' || val === '=>') return '=>';
-    if (val === '\u003c=' || val === '<=') return '<=';
+    if (val === '=>') return '=>';
+    if (val === '<=') return '<=';
     return val;
   };
 
@@ -80,31 +62,8 @@ export default function EnhancedAlerts({ comparisonComponents, comparisonResults
     };
   })();
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'high': return 'text-red-600 bg-red-50 border-red-200';
-      case 'medium': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'low': return 'text-blue-600 bg-blue-50 border-blue-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
-  };
-
-  const getSeverityIcon = (type: string) => {
-    switch (type) {
-      case 'critical': return <XCircle className="h-5 w-5 text-red-500" />;
-      case 'warning': return <AlertTriangle className="h-5 w-5 text-yellow-500" />;
-      case 'info': return <Info className="h-5 w-5 text-blue-500" />;
-      default: return <CheckCircle className="h-5 w-5 text-green-500" />;
-    }
-  };
-
-  const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString();
-  };
-
   // Filter and search logic for alert groups
   const filteredComponents = comparisonComponents.filter((comp: any) => {
-    // Severity filter
     let details: any[] = [];
     try {
       const parsed = comp.diff_json ? JSON.parse(comp.diff_json) : [];
@@ -117,7 +76,6 @@ export default function EnhancedAlerts({ comparisonComponents, comparisonResults
       (filter === 'critical' && severity === 'critical') ||
       (filter === 'warning' && severity === 'warning') ||
       (filter === 'info' && severity === 'info');
-    // Search filter
     const title = `System ${comp.component_type || 'change'} detected`;
     const description = `Component change detected in comparison ${comp.comparison_id}`;
     const matchesSearch = title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -133,26 +91,348 @@ export default function EnhancedAlerts({ comparisonComponents, comparisonResults
     return acc;
   }, {});
 
-  // Helper to get details from a group of components
-  const getDetailsRows = (comps: any[], showAll: boolean) => {
-    return comps.flatMap((comp: any) => {
-      const details = comp.diff_json ? JSON.parse(comp.diff_json) : [];
-      if (!Array.isArray(details)) return [];
-      return details.filter((item: any) => showAll || item.SideIndicator !== '==');
-    });
-  };
-
-  // State for expanded subcomponents
-  const [expanded, setExpanded] = useState<{ [key: string]: boolean }>({});
   const toggleExpand = (key: string) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
-
-  // State for paginating recent comparison results
-  const [recentLimit, setRecentLimit] = useState(5);
   const handleLoadMore = () => setRecentLimit((prev) => prev + 5);
-
-  // State for paginating alert groups
-  const [alertGroupLimit, setAlertGroupLimit] = useState(5);
   const handleLoadMoreAlerts = () => setAlertGroupLimit((prev) => prev + 5);
+
+  // Helper: Render details table based on component_type (drivers, environmentVariables, ipConfig, printers, processes, services, software, startupPrograms, systeminfo, accounts, updates)
+  function renderDetailsTable(componentType: string, details: any[], normalizeSideIndicator: (val: string | undefined) => string | undefined) {
+    if (!Array.isArray(details) || details.length === 0) return <div className="text-gray-400 italic">No details</div>;
+
+    switch (componentType) {
+      case "drivers":
+        return (
+          <table className="min-w-full divide-y divide-gray-200 text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Name</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Manufacturer</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">DeviceID</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">DriverVersion</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">DriverDate</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">SideIndicator</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {details.map((item: any, idx: number) => {
+                const indicator = normalizeSideIndicator(item.SideIndicator);
+                return (
+                  <tr key={idx}>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.Name || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.Manufacturer || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap max-w-xs truncate" title={item.DeviceID}>{item.DeviceID || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.DriverVersion || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.DriverDate ? new Date(item.DriverDate).toLocaleDateString() : '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{renderSideIndicator(indicator)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        );
+      case "environmentVariables":
+        return (
+          <table className="min-w-full divide-y divide-gray-200 text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Name</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Value</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">SideIndicator</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {details.map((item: any, idx: number) => {
+                const indicator = normalizeSideIndicator(item.SideIndicator);
+                return (
+                  <tr key={idx}>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.Name || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.Value || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{renderSideIndicator(indicator)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        );
+      case "ipConfig":
+        return (
+          <table className="min-w-full divide-y divide-gray-200 text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">InterfaceAlias</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">IPv4Address</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">IPv6Address</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">DNSServers</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">SideIndicator</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {details.map((item: any, idx: number) => {
+                const indicator = normalizeSideIndicator(item.SideIndicator);
+                return (
+                  <tr key={idx}>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.InterfaceAlias || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.IPv4Address || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.IPv6Address || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.DNSServers || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{renderSideIndicator(indicator)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        );
+      case "printers":
+        return (
+          <table className="min-w-full divide-y divide-gray-200 text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Name</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">PrinterStatus</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">PortName</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">SideIndicator</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {details.map((item: any, idx: number) => {
+                const indicator = normalizeSideIndicator(item.SideIndicator);
+                return (
+                  <tr key={idx}>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.Name || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.PrinterStatus?.Value || item.PrinterStatus?.value || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.PortName || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{renderSideIndicator(indicator)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        );
+      case "processes":
+        return (
+          <table className="min-w-full divide-y divide-gray-200 text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Id</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Name</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">StartTime</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Path</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">SideIndicator</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {details.map((item: any, idx: number) => {
+                const indicator = normalizeSideIndicator(item.SideIndicator);
+                return (
+                  <tr key={idx}>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.Id || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.Name || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.StartTime || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.Path || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{renderSideIndicator(indicator)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        );
+      case "services":
+        return (
+          <table className="min-w-full divide-y divide-gray-200 text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Name</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Status</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">DisplayName</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">SideIndicator</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {details.map((item: any, idx: number) => {
+                const indicator = normalizeSideIndicator(item.SideIndicator);
+                return (
+                  <tr key={idx}>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.Name || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.Status?.Value || item.Status?.value || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.DisplayName || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{renderSideIndicator(indicator)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        );
+      case "software":
+        return (
+          <table className="min-w-full divide-y divide-gray-200 text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">DisplayName</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">DisplayVersion</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Publisher</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">InstallDate</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">SideIndicator</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {details.map((item: any, idx: number) => {
+                const indicator = normalizeSideIndicator(item.SideIndicator);
+                return (
+                  <tr key={idx}>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.DisplayName || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.DisplayVersion || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.Publisher || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.InstallDate ? new Date(item.InstallDate).toLocaleDateString() : '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{renderSideIndicator(indicator)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        );
+      case "startupPrograms":
+        return (
+          <table className="min-w-full divide-y divide-gray-200 text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Name</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Command</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">SideIndicator</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {details.map((item: any, idx: number) => {
+                const indicator = normalizeSideIndicator(item.SideIndicator);
+                return (
+                  <tr key={idx}>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.Name || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.Command || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{renderSideIndicator(indicator)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        );
+      case "systeminfo":
+        return (
+          <table className="min-w-full divide-y divide-gray-200 text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Name</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Value</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">SideIndicator</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {details.map((item: any, idx: number) => {
+                const indicator = normalizeSideIndicator(item.SideIndicator);
+                let valueDisplay;
+                if (item.Value && typeof item.Value === 'object') {
+                  valueDisplay = item.Value.Value || item.Value.value || JSON.stringify(item.Value);
+                } else {
+                  valueDisplay = item.Value || '-';
+                }
+                return (
+                  <tr key={idx}>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.Name || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{valueDisplay}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{renderSideIndicator(indicator)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        );
+      case "accounts":
+        return (
+          <table className="min-w-full divide-y divide-gray-200 text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Name</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Enabled</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">SideIndicator</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {details.map((item: any, idx: number) => {
+                const indicator = normalizeSideIndicator(item.SideIndicator);
+                return (
+                  <tr key={idx}>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.Name || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.Enabled !== undefined ? (item.Enabled ? 'Yes' : 'No') : '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{renderSideIndicator(indicator)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        );
+      case "updates":
+        return (
+          <table className="min-w-full divide-y divide-gray-200 text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">Description</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">HotFixID</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">InstalledOn</th>
+                <th className="px-2 py-1 text-left font-semibold text-gray-600">SideIndicator</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {details.map((item: any, idx: number) => {
+                const indicator = normalizeSideIndicator(item.SideIndicator);
+                return (
+                  <tr key={idx}>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.Description || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.HotFixID || '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{item.InstalledOn ? new Date(item.InstalledOn).toLocaleDateString() : '-'}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{renderSideIndicator(indicator)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        );
+      default:
+        // Fallback: generic key-value table
+        const keys = Array.from(new Set(details.flatMap((item: any) => Object.keys(item))));
+        return (
+          <table className="min-w-full divide-y divide-gray-200 text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                {keys.map((key) => (
+                  <th key={key} className="px-2 py-1 text-left font-semibold text-gray-600">{key}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {details.map((item: any, idx: number) => (
+                <tr key={idx}>
+                  {keys.map((key) => (
+                    <td key={key} className="px-2 py-1 whitespace-nowrap">{typeof item[key] === 'object' && item[key] !== null ? JSON.stringify(item[key]) : (item[key] !== undefined ? String(item[key]) : '-')}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        );
+    }
+  }
+
+  // Helper: Render SideIndicator with color
+  function renderSideIndicator(indicator: string | undefined) {
+    if (indicator === '==') {
+      return <span className="inline-flex items-center px-2 py-0.5 rounded bg-green-100 text-green-800 font-semibold">==</span>;
+    }
+    if (indicator === '=>') {
+      return <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold">=&gt;</span>;
+    }
+    if (indicator === '<=') {
+      return <span className="inline-flex items-center px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 font-semibold">&lt;=</span>;
+    }
+    return <span className="inline-flex items-center px-2 py-0.5 rounded bg-gray-100 text-gray-800 font-semibold">{indicator || '-'}</span>;
+  }
 
   return (
     <div className="space-y-6">
@@ -305,46 +585,7 @@ export default function EnhancedAlerts({ comparisonComponents, comparisonResults
                         {expanded[key] && Array.isArray(details) && details.length > 0 && (
                           <div className="mt-2 pb-4 px-4">
                             <div className="overflow-x-auto">
-                              <table className="min-w-full divide-y divide-gray-200 text-xs">
-                                <thead className="bg-gray-50">
-                                  <tr>
-                                    <th className="px-2 py-1 text-left font-semibold text-gray-600">Name</th>
-                                    <th className="px-2 py-1 text-left font-semibold text-gray-600">Manufacturer</th>
-                                    <th className="px-2 py-1 text-left font-semibold text-gray-600">DeviceID</th>
-                                    <th className="px-2 py-1 text-left font-semibold text-gray-600">DriverVersion</th>
-                                    <th className="px-2 py-1 text-left font-semibold text-gray-600">DriverDate</th>
-                                    <th className="px-2 py-1 text-left font-semibold text-gray-600">SideIndicator</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-100">
-                                  {details.map((item: any, idx: number) => {
-                                    const indicator = normalizeSideIndicator(item.SideIndicator);
-                                    return (
-                                      <tr key={idx}>
-                                        <td className="px-2 py-1 whitespace-nowrap">{item.Name || '-'}</td>
-                                        <td className="px-2 py-1 whitespace-nowrap">{item.Manufacturer || '-'}</td>
-                                        <td className="px-2 py-1 whitespace-nowrap max-w-xs truncate" title={item.DeviceID}>{item.DeviceID || '-'}</td>
-                                        <td className="px-2 py-1 whitespace-nowrap">{item.DriverVersion || '-'}</td>
-                                        <td className="px-2 py-1 whitespace-nowrap">{item.DriverDate ? new Date(item.DriverDate).toLocaleDateString() : '-'}</td>
-                                        <td className="px-2 py-1 whitespace-nowrap">
-                                          {indicator === '==' && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-green-100 text-green-800 font-semibold">==</span>
-                                          )}
-                                          {indicator === '=>' && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold">=&gt;</span>
-                                          )}
-                                          {indicator === '<=' && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 font-semibold">&lt;=</span>
-                                          )}
-                                          {indicator !== '==' && indicator !== '=>' && indicator !== '<=' && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-gray-100 text-gray-800 font-semibold">{indicator || '-'}</span>
-                                          )}
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
+                              {renderDetailsTable(comp.component_type, details, normalizeSideIndicator)}
                             </div>
                           </div>
                         )}
