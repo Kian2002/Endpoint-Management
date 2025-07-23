@@ -101,7 +101,7 @@ export default function RealTimeMonitor({ data }: RealTimeMonitorProps) {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="gap-2 grid lg:grid-cols-2">
       {/* Real-time Header */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-4">
@@ -141,7 +141,7 @@ export default function RealTimeMonitor({ data }: RealTimeMonitorProps) {
       </div>
 
       {/* System Health Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white rounded-lg shadow p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -192,7 +192,7 @@ export default function RealTimeMonitor({ data }: RealTimeMonitorProps) {
       </div>
 
       {/* Performance Metrics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <h4 className="text-lg font-medium text-gray-900 mb-4">Performance Metrics</h4>
           <div className="space-y-4">

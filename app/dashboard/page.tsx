@@ -47,21 +47,9 @@ export default function Dashboard() {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* User Profile Sidebar */}
-            <div className="lg:col-span-1">
-              <UserProfile />
-            </div>
-            
-            {/* Main Dashboard Content */}
-            <div className="lg:col-span-2">
-              <div className="bg-white shadow rounded-lg">
-                <div className="px-4 py-5 sm:p-6">
-                  <h1 className="text-2xl font-bold text-gray-900 mb-6">
-                    Endpoint Dashboard
-                  </h1>
-                  <EndpointDashboard />
-                </div>
-              </div>
+            {/* Main Dashboard Content (full width) */}
+            <div className="lg:col-span-3">
+              <EndpointDashboard />
             </div>
           </div>
         </div>

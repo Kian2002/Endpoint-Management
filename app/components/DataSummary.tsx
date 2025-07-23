@@ -78,19 +78,7 @@ export default function DataSummary({ data }: DataSummaryProps) {
 
   return (
     <div className="space-y-6">
-      {/* Overview Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg shadow-lg p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold mb-2">Enhanced Data Visualization</h2>
-            <p className="text-blue-100">Your endpoint management data is now more visually appealing and useful</p>
-          </div>
-          <div className="p-3 bg-white bg-opacity-20 rounded-full">
-            <Shield className="h-8 w-8" />
-          </div>
-        </div>
-      </div>
-
+      
       {/* Key Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="bg-white rounded-lg shadow p-4 text-center">
@@ -156,63 +144,6 @@ export default function DataSummary({ data }: DataSummaryProps) {
               </div>
             </div>
           ))}
-        </div>
-      </div>
-
-      {/* Enhanced Features */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-6">Enhanced Features</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((feature, index) => (
-            <div key={index} className="flex items-start space-x-3">
-              <div className={`p-2 rounded-full bg-gray-100`}>
-                <feature.icon className={`h-5 w-5 ${feature.color}`} />
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-900">{feature.title}</h4>
-                <p className="text-sm text-gray-600">{feature.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Usage Tips */}
-      <div className="bg-blue-50 rounded-lg p-6">
-        <h3 className="text-lg font-medium text-blue-900 mb-4">How to Use the Enhanced Dashboard</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
-          <div>
-            <h4 className="font-medium mb-2">📊 Interactive Charts</h4>
-            <ul className="space-y-1">
-              <li>• Click on chart elements to see detailed information</li>
-              <li>• Use the tab navigation to switch between different views</li>
-              <li>• Hover over charts for tooltips with exact values</li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-medium mb-2">🔍 Filtering & Search</h4>
-            <ul className="space-y-1">
-              <li>• Use search boxes to find specific items</li>
-              <li>• Apply filters to narrow down results</li>
-              <li>• Toggle detail views for more information</li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-medium mb-2">⚡ Real-Time Updates</h4>
-            <ul className="space-y-1">
-              <li>• Enable auto-refresh for live updates</li>
-              <li>• Manual refresh button for immediate updates</li>
-              <li>• System health indicators show current status</li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-medium mb-2">📱 Responsive Design</h4>
-            <ul className="space-y-1">
-              <li>• Works on desktop, tablet, and mobile</li>
-              <li>• Adaptive layouts for different screen sizes</li>
-              <li>• Touch-friendly interface for mobile devices</li>
-            </ul>
-          </div>
         </div>
       </div>
     </div>
