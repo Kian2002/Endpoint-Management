@@ -6,20 +6,29 @@ import {
   Activity, Shield, Database, Eye, EyeOff, 
   CheckCircle, AlertTriangle, Clock, Settings
 } from 'lucide-react';
+import Link from 'next/link';
 
 interface EnhancedEndpointsProps {
   assets: any[];
   processes: any[];
   software: any[];
   processLogs: any[];
+  comparisonComponents: any[];
+  comparisonResults: any[];
 }
 
-export default function EnhancedEndpoints({ assets, processes, software, processLogs }: EnhancedEndpointsProps) {
+export default function EnhancedEndpoints({ assets, processes, software, processLogs, comparisonComponents, comparisonResults }: EnhancedEndpointsProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [osFilter, setOsFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showDetails, setShowDetails] = useState(false);
   const [selectedEndpoint, setSelectedEndpoint] = useState<any>(null);
+
+  useEffect(() => {
+    if (comparisonComponents && comparisonComponents.length > 0) {
+      console.log('Sample comparisonComponents:', comparisonComponents.slice(0, 3));
+    }
+  }, [comparisonComponents]);
 
   // Process data for visualization
   const osDistribution = assets.reduce((acc: any[], asset: any) => {
@@ -54,14 +63,52 @@ export default function EnhancedEndpoints({ assets, processes, software, process
     maintenance: assets.filter(a => a.status === 'maintenance').length
   };
 
-  // Get process count for each endpoint
+  // Get process count for each endpoint (join comparison_result and comparison_component)
   const getProcessCount = (assetId: number) => {
-    return processes.filter(p => p.pc_id === assetId).length;
+    // Find all comparisonResults for this endpoint
+    const endpointResults = comparisonResults.filter((cr: any) => String(cr.pc_id) === String(assetId));
+    if (endpointResults.length === 0) return 0;
+    // Find the latest comparisonComponent of type 'processes' for these comparison_ids
+    const latest = endpointResults
+      .map((cr: any) => {
+        const comps = comparisonComponents
+          .filter((cc: any) => cc.component_type === 'processes' && cc.comparison_id === cr.comparison_id)
+          .sort((a: any, b: any) => b.comparison_id - a.comparison_id);
+        return comps[0];
+      })
+      .filter(Boolean)
+      .sort((a: any, b: any) => b.comparison_id - a.comparison_id)[0];
+    if (!latest) return 0;
+    try {
+      const parsed = latest.diff_json ? JSON.parse(latest.diff_json) : [];
+      return Array.isArray(parsed) ? parsed.length : 0;
+    } catch {
+      return 0;
+    }
   };
 
-  // Get software count for each endpoint
+  // Get software count for each endpoint (join comparison_result and comparison_component)
   const getSoftwareCount = (assetId: number) => {
-    return software.filter(s => s.pc_id === assetId).length;
+    // Find all comparisonResults for this endpoint
+    const endpointResults = comparisonResults.filter((cr: any) => String(cr.pc_id) === String(assetId));
+    if (endpointResults.length === 0) return 0;
+    // Find the latest comparisonComponent of type 'software' for these comparison_ids
+    const latest = endpointResults
+      .map((cr: any) => {
+        const comps = comparisonComponents
+          .filter((cc: any) => cc.component_type === 'software' && cc.comparison_id === cr.comparison_id)
+          .sort((a: any, b: any) => b.comparison_id - a.comparison_id);
+        return comps[0];
+      })
+      .filter(Boolean)
+      .sort((a: any, b: any) => b.comparison_id - a.comparison_id)[0];
+    if (!latest) return 0;
+    try {
+      const parsed = latest.diff_json ? JSON.parse(latest.diff_json) : [];
+      return Array.isArray(parsed) ? parsed.length : 0;
+    } catch {
+      return 0;
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -207,62 +254,56 @@ export default function EnhancedEndpoints({ assets, processes, software, process
 
       {/* Endpoints Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredAssets.map((asset, index) => (
-          <div
-            key={asset.id || index}
-            className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer"
-            onClick={() => setSelectedEndpoint(selectedEndpoint?.id === asset.id ? null : asset)}
-          >
-            <div className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900">
-                    {asset.asset_tag || `Endpoint ${asset.id || index + 1}`}
-                  </h3>
-                  <p className="text-sm text-gray-500">{asset.model || 'Unknown Model'}</p>
+        {filteredAssets.map((asset, index) => {
+          // Ensure we have a valid id for navigation
+          let endpointId = asset.pc_id;
+          if (endpointId === undefined || endpointId === null) {
+            console.warn('Asset missing pc_id:', asset);
+            endpointId = asset.asset_tag || asset.serial_number || index;
+          }
+          return (
+            <Link
+              key={endpointId}
+              href={`/endpoints/${endpointId}`}
+              className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer block focus:outline-none focus:ring-2 focus:ring-blue-500"
+              tabIndex={0}
+            >
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">
+                      {asset.asset_tag || `Endpoint ${endpointId}`}
+                    </h3>
+                    <p className="text-sm text-gray-500">{asset.model || 'Unknown Model'}</p>
+                  </div>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(asset.status)}`}>
+                    {getStatusIcon(asset.status)}
+                    <span className="ml-1">{asset.status || 'Active'}</span>
+                  </span>
                 </div>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(asset.status)}`}>
-                  {getStatusIcon(asset.status)}
-                  <span className="ml-1">{asset.status || 'Active'}</span>
-                </span>
-              </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Operating System:</span>
-                  <span className="font-medium text-gray-900">{asset.os || 'Unknown'}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Serial Number:</span>
-                  <span className="font-medium text-gray-900">{asset.serial_number || 'N/A'}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Processes:</span>
-                  <span className="font-medium text-gray-900">{getProcessCount(asset.id)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Software:</span>
-                  <span className="font-medium text-gray-900">{getSoftwareCount(asset.id)}</span>
-                </div>
-              </div>
-
-              {/* Detailed Information */}
-              {showDetails && selectedEndpoint?.id === asset.id && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Additional Details:</h4>
-                  <div className="space-y-2 text-xs text-gray-600">
-                    {Object.entries(asset).map(([key, value]) => (
-                      <div key={key} className="flex justify-between">
-                        <span className="capitalize">{key.replace(/_/g, ' ')}:</span>
-                        <span className="font-medium">{String(value) || 'N/A'}</span>
-                      </div>
-                    ))}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Operating System:</span>
+                    <span className="font-medium text-gray-900">{asset.os || 'Unknown'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Serial Number:</span>
+                    <span className="font-medium text-gray-900">{asset.serial_number || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Processes:</span>
+                    <span className="font-medium text-gray-900">{getProcessCount(asset.pc_id)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Software:</span>
+                    <span className="font-medium text-gray-900">{getSoftwareCount(asset.pc_id)}</span>
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
-        ))}
+              </div>
+            </Link>
+          );
+        })}
       </div>
 
       {/* No Results */}

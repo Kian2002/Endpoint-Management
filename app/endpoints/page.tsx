@@ -56,6 +56,8 @@ export default function Endpoints() {
             processes={data.get_process_temp || []}
             software={data.installed_software || []}
             processLogs={data.process_log || []}
+            comparisonComponents={data.comparison_component || []}
+            comparisonResults={data.comparison_result || []}
           />
         </div>
       </div>
